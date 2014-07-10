@@ -221,31 +221,21 @@ local function new(_, user, withListener)
     -- slm pour les quatres éléments: icone, nom, client, statut
 
     if(withListener)then
-        remove:addMouseListener(true)
-        -- FIXME: mouse up is triggered twice -- why ? who is passing the event ? TreeView ?
-        local removeWasClicked = false
         remove:mouseUp(function(mouseEvent)
-            if(removeWasClicked)then
-                removeWasClicked = false
-                return
-            end
             if(mouseEvent:mouseWasClicked())then
-                if not(removeWasClicked)then
-                    print("mouse up on remove")
-                    removeWasClicked = true
-                    local cob = nil
-                    local function cb(res)
-                        result = res
-                        if(cob)then
-                            cob:dismiss()
-                        end
-                        if(res)then
-                            ec.broadcast("removeFriend", self.user)
-                        end
+                print("mouse up on remove")
+                local cob = nil
+                local function cb(res)
+                    result = res
+                    if(cob)then
+                        cob:dismiss()
                     end
-                    local confirm = createDialog({200,200}, cb)
-                    cob = luce:CallOutBox( confirm, comp:getBounds(), withListener )
+                    if(res)then
+                        ec.broadcast("removeFriend", self.user)
+                    end
                 end
+                local confirm = createDialog({200,200}, cb)
+                cob = luce:CallOutBox( confirm, comp:getBounds(), withListener )
             end
         end)
 
@@ -265,10 +255,6 @@ local function new(_, user, withListener)
         end
 
         comp:mouseUp(function(mouseEvent)
-            if(removeWasClicked)then
-                removeWasClicked = false
-                return
-            end
             if(mouseEvent:mouseWasClicked())then
                 if(remove.visible)then
                     remove.visible = false
