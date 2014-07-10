@@ -56,7 +56,9 @@ local app, luce = require"luce.LApplication"("app", ...)
 -- TODO: create a Tox class to hold all callbacks, initialise things, etc
 -- just to keep it safe from LLC reloads
 
+
 local function MainWindow(params)
+    local version = "lTox 0.1"
     -- TODO: integrate in module/reload
     -- TODO: make llive to watch deps also
     --
@@ -83,44 +85,82 @@ local function MainWindow(params)
         end
     else
         Tox = require"tox"
+        _G.App.Tox = Tox
     end
 
     local app, luce = app or _G.App, luce or _G.Luce
+    app:setDoubleClickTimeout(250)
+
     local log, logError = app.log, app.logError
 
-    local wsize = {800,600}
+    local wsize, currentSize = {240,600}, {240,600}
     local dw  = luce:Document(title)
     local mc  = luce:MainComponent("mc")
     mc:setSize(wsize)
+
+    local chatWidth = 560
 
     local Tox      = Tox or app.Tox
     local EC       = require"EventCentral"
     local Contacts = require"DTContacts"
     local Chat     = require"DTChat"
     local User     = require"DTUser"
+    local Utils    = require"DTUtils"
+    local Bar      = require"DTBar"
+
+    --------------------
 
     local ec = EC()
-    local tox = app.tox or Tox()
-    app.tox = tox
+    local tox = app.tox and app.tox.tox or Tox()
+    app.tox = app.tox or { tox = tox, utils = Utils }
 
-    --local contacts = require"DTContacts"("contacts")
-    -- TODO: move to initialised, probably
+    --------------------
+
+    -- load config
+    local configFile = "/home/distances/.config/tox/data.mine"
+    if not(app.tox.loaded)then
+        local config = assert(io.open(configFile, "rb"), "Can't load tox config")
+        assert( tox:load(config:read("*a")), "FAILED: can't load config" )
+        app.tox.loaded = true
+        config:close()
+    end
+
+    local me = {
+        num     = -1,
+        active  = true,
+        chatwin = false,
+        online  = false,
+        status  = tox:getSelfUserStatus( i ) and Tox.status.NONE or Tox.status.INVALID,
+        message = tox:getSelfStatusMessage( i ) or "",
+        key     = tox:getAddress(),
+        name    = tox:getSelfName() or "Anonymous",
+        lastOnline = Utils.formatDate(),
+    }
+
+    --------------------
+
     local contacts = Contacts("contacts")
-    local user     = User("mememe")
-    local chat     = nil --
-    -- -----------------
+    local bar      = Bar("bar")
+    local user     = User( me )
+    user:setBackground( luce.Colours.peru )
 
-    -- load config ?
-    -- set my ID
-    --  that's a table { name = "me", uuid = "UUID...", status = "online" }
+    --------------------
 
-    local data = io.open("data.json"):read("*a")
-    data = require"json".decode(data)
-
-    local config = assert(io.open("/home/distances/.config/tox/data", "rb"), "Can't load tox config")
-    assert( tox:load(config:read("*a")) )
+    local function save_config()
+        local data = assert(tox:save(), "Can't save tox data")
+        local config = io.open(configFile, "wb")
+        config:write( data )
+        config:close()
+    end
 
     local friends = {}
+    local function clearFriend(friendnum)
+        local i = friendnum + 1
+        if(friends[i].chatwin)then
+            friends[i].chatwin = nil
+        end
+        table.remove(friends, i)
+    end
     local function cbOnFriendAdded(max)
         local friends = friends
         for i=0,max-1 do
@@ -128,67 +168,200 @@ local function MainWindow(params)
                 local friend = {
                     num     = i,
                     active  = true,
-                    chatwin = 0,
+                    chatwin = false,
                     online  = false,
-                    status  = Tox.status.USERSTATUS_NONE,
+                    status  = tox:getFriendConnectionStatus( i ) and Tox.status.NONE or Tox.status.INVALID,
+                    --status  = tox:getUserStatus( i ),
+                    message = tox:getStatusMessage( i ) or "",
                     key     = tox:getClientId(i),
                     name    = tox:getName(i) or "Anonymous",
                     lastOnline = tox:getLastOnline(i),
                 }
+                print("user status:", friend.status)
                 friends[i+1] = friend
             end
         end
     end
-    cbOnFriendAdded(tox:countFriendlist())
 
-    -- init frient list, that'll be data for DTContact
+    local function cbReceiveMessage(friend, msg)
+        print(string.format("friend %s sent a message: %s", friend, msg))
+    end
+    tox:callbackFriendMessage(cbReceiveMessage)
 
+    -- called when a user connects also, but won't detect disconnections
+    local function cbChangeName(friend, msg)
+        print(string.format("friend %s changed its name: %s", friend, msg))
+    end
+    tox:callbackNameChange(cbChangeName)
+
+    local function cbStatusChanged(friend, status)
+        ec.broadcast("statusChanged", friend, status)
+    end
+    tox:callbackUserStatus(cbStatusChanged)
+
+    local function cbFriendRequest(pub, msg)
+        print(string.format("friend requested adding: %s", msg))
+    end
+    tox:callbackFriendRequest(cbFriendRequest)
+
+    local function dtSendMessage(friend, msg)
+        print("sending message **********************", friend.num, msg)
+        assert( tox:sendAction(friend.num, msg), "Can't send message" )
+    end
+
+    local function dtRemoveFriend(friend)
+        if( tox:delFriend(friend.num) )then
+            print("num of friends:", tox:countFriendlist())
+            clearFriend(friend.num)
+            contacts:setData(friends)
+            save_config()
+            ec.broadcast("success", "Friend %s (%d) removed successfully", friend.name, friend.num)
+        else
+            ec.broadcast("error", "Failed to remove friend %s (%d)", friend.name, friend.num)
+        end
+    end
+
+    local function dtError(msg, ...)
+        local msg = string.format("ERROR: "..msg, ...)
+        print(msg)
+    end
+
+    local function dtSuccess(msg, ...)
+        local msg = string.format("INFO: "..msg, ...)
+        print(msg)
+    end
+
+
+    -- -----------------
+
+    local active, lastWidth = nil, nil
     local function createChat(user)
         -- TODO: add a cleanup method in chat for callbacks, if any
         --       and call it before creating new window
-        chat = Chat("chat", {"moi"})
+        local chat = user.chatwin
+        if not(chat)then
+            print("Creating new chat window for", user.name)
+            chat = Chat{ user }
+            user.chatwin = chat
+        else
+            print("loading existing chat window...")
+        end
+        if(active) and not(active==chat)then
+            print("changing active chat window...")
+            active.visible = false
+            local status = tox:getFriendConnectionStatus( user.num ) and Tox.status.NONE or Tox.status.INVALID
+            if(status ~= user.status)then
+                user.status = status
+                cbStatusChanged(user.num, status)
+            end
+        end
+        local w = lastWidth or (mc:getWidth()+chatWidth)
+        lastWidth = lastWidth or w
+        mc:setSize( w, mc:getHeight() )
+        chat.visible = true
+        active = chat
         local bounds = luce:Rectangle(mc:getLocalBounds()):withTrimmedLeft(240)
         chat:setBounds(bounds)
         mc:addAndMakeVisible(chat)
         mc:repaint()
     end
-    local function itemClicked(msg)
-        createChat("meme")
+    local function hideChat(user)
+        if(active and active.visible)then
+            active.visible = false
+            lastWidth = mc:getWidth()
+            mc:setSize( wsize[1], mc:getHeight() )
+        end
     end
-
-    -- -----------------
-
+    local function itemClicked(e, user, isNowSelected)
+        print("item clicked", isNowSelected)
+        if(isNowSelected)then
+            createChat(user)
+        else
+            hideChat(user)
+        end
+    end
+ 
     local black = luce:Colour(luce.Colours.black)
     app:initialised(function()
-        ec.register("itemClicked", itemClicked)
+        assert(ec.register("itemClicked", itemClicked))
+        assert(ec.register("sendMessage", dtSendMessage))
+        assert(ec.register("removeFriend", dtRemoveFriend))
+
+        -- temporary, create a status bar component or send to notifications
+        assert(ec.register("success", dtSuccess))
+        assert(ec.register("error", dtError))
+
+        cbOnFriendAdded(tox:countFriendlist())
         contacts:setData(friends)
     end)
 
     mc:paint(function(g)
         g:setColour(luce.Colours.dimgrey)
         g:fillAll()
-    end)
 
-    mc:resized(function(...)
         local bounds = luce:Rectangle(mc:getLocalBounds())
         local lbounds = bounds:removeFromLeft(240)
         local ubounds = lbounds:removeFromTop(40)
         user:setBounds(ubounds)
+        local bbounds = lbounds:removeFromBottom(40)
+        bar:setBounds( bbounds )
         contacts:setBounds(lbounds)
+        if(active and active.visible)then
+            active:setBounds(bounds)
+        end
     end)
 
-    mc:addAndMakeVisible(contacts)
-    --mc:addAndMakeVisible(chat)
+    mc:resized(function(...)
+        if(active and active.visible)then
+            lastWidth = mc:getWidth()
+        end
+    end)
+
     mc:addAndMakeVisible(user)
+    mc:addAndMakeVisible(contacts)
+    mc:addAndMakeVisible(bar)
 
     dw:setContentOwned(mc, true)
-    dw:centreWithSize{800,600}
+    dw:centreWithSize(wsize)
     dw:setVisible(true)
     return dw
 end
 
 local function control()
-    tox:toxDo()
+    if (_G.App and _G.App.tox) then
+        local app = _G.App
+        local utils = app.tox.utils
+        if not(app.tox.init)then
+            app.tox.init = utils.startDHT()
+        else
+            local tox = app.tox.tox
+            tox:toxDo()
+            if not(tox:isConnected())then app.tox.connected = false end
+            if not(app.tox.connected) and (tox:isConnected())then
+                app.tox.connected = true
+                print("CONNECTED:", 
+                    utils.formatAddress(tox:getAddress()), 
+                    tox:getSelfName(), 
+                    tox:getSelfStatusMessage())
+            end
+            --[==[
+            if(app.tox.connected) then
+                local ec = require"EventCentral"()
+                -- check status once in a while
+                app.tox.check_users = (app.tox.check_users or 0) + 1
+                if(app.tox.check_users>10)then
+                    for i=1,tox:countFriendlist() do
+                        local r, err = tox:getFriendConnectionStatus(i-1)
+                        if(r~=1)then
+                            ec.broadcast("statusChanged", i-1, app.Tox.status.INVALID)
+                        end
+                    end
+                app.tox.check_users = 0
+                end
+            end
+            --]==]
+        end
+    end
 end
 
-return app:start(MainWindow)--, control)
+return app:start(MainWindow, { control, 200 } )

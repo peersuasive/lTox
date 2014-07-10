@@ -139,7 +139,7 @@ local function format_key(raw)
     return table.concat(raw_hex)
 end
 local function format_date(d)
-    return os.date( "%c", d)
+    return os.date( "%c", d or os.date())
 end
 local attrs = {
     num     = function(n)return n end,
@@ -152,11 +152,11 @@ local attrs = {
     lastOnline = format_date,
 }
 
-local function itemOpennessChanged(self, isNowOpen)
+local function itemOpennessChanged(self, isNowOpen, parent)
     if (isNowOpen) then
         if(ROOT==self.name)then
             for _, c in next, self.data do
-                self:addSubItem(self:new(c))
+                self:addSubItem(self:new(c, nil, parent))
             end
         elseif("table"==type(self.data))then
             for k, v in next, attrs do
@@ -172,7 +172,7 @@ local function itemOpennessChanged(self, isNowOpen)
     end
 end
 
-local function new(_, data, value)
+local function new(_, data, value, parent)
     local itemOpennessChanged = itemOpennessChanged
     local ec = EC()
 
@@ -187,6 +187,7 @@ local function new(_, data, value)
 
     local self = {
         isnode = data.name and true or false,
+        parent = parent,
         name   = name,
         data   = data,
         new    = new,
@@ -217,7 +218,7 @@ local function new(_, data, value)
         end
     end)
     comp:itemOpennessChanged(function(isNowOpen)
-        itemOpennessChanged(self, isNowOpen)
+        itemOpennessChanged(self, isNowOpen, self.parent)
     end)
 
     comp:getUniqueName(function()
@@ -235,8 +236,11 @@ local function new(_, data, value)
     local itemDoubleClicked = function(...) return comp.itemDoubleClicked(comp, ...) end
     local itemClicked = function(...) return comp.itemClicked(comp,...) end
     comp:itemClicked(function(e)
-        ec.broadcast("itemClicked", e)
-        comp:setSelected(true, true)
+        local selected = not(self.item:isSelected())
+        comp:setSelected(selected, true)
+        if(self.isnode)then
+            ec.broadcast("itemClicked", e, self.data, selected)
+        end
     end)
 
     comp:paintItem(function(g,w,h)
@@ -248,7 +252,7 @@ local function new(_, data, value)
         if(ROOT==name)then return nil end
         local item
         if(self.isnode)then
-            item = User(name, true)
+            item = User(data, self.parent)
             item:setBorder(1)
             item:itemClicked(itemClicked)
             item:itemDoubleClicked(itemDoubleClicked)

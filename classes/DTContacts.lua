@@ -73,15 +73,12 @@ local EC = require"EventCentral"
 
 -- TODO: create components for bar and me
 
-local function new(_, name, myId, parent)
+local function new(_, name, parent)
     local ec = EC()
     local name = name or componentName
     local comp = luce:Component(name)
     local tree = luce:TreeView("TreeView")
-    local bar  = luce:Component("bar")
-
-    local myId = myId or "<me>"
-    local me   = luce:Label(myId)
+    local self = {}
 
     tree:setLookAndFeel(4)
     tree:setColour( tree.ColourIds.backgroundColourId, "dimgrey" )
@@ -90,46 +87,28 @@ local function new(_, name, myId, parent)
     tree.rootItemVisible = false
     tree.defaultOpenness = false
 
-    me.text = myId
-    me:setMinimumHorizontalScale( 1.0 )
-    me:setJustificationType( luce.JustificationType.left )
-    me:setEditable( false, false, true )
-    me:setColour( me.ColourIds.backgroundColourId, "darkslategrey" )
-
-    bar:paint(function(g)
-        g:setColour( luce.Colours.darkslategrey )
-        g:fillAll()
-    end)
-    local self = {
-    }
-
     function self:setData(data)
-        tree:setRootItem( TreeViewItem(data) )
+        tree:setRootItem( TreeViewItem(data, nil, self) )
     end
+    self = setmetatable(self, {
+        __tostring = function()return name end,
+        __self     = comp.__self,
+        __index    = comp,
+        __newindex = comp,
+    })
 
     comp:addAndMakeVisible(tree)
-    comp:addAndMakeVisible(me)
-    comp:addAndMakeVisible(bar)
     comp:paint(function(g)
         g:setColour(luce.Colours.darkgrey)
         g:fillAll()
     end)
     comp:resized(function(...)
         local bounds = luce:Rectangle(comp:getLocalBounds()):withTrimmedLeft(5):withTrimmedRight(5):withTrimmedTop(5)
-        local mbounds = bounds:removeFromTop(40)
-        me:setBounds(mbounds)
-        local bbounds = bounds:removeFromBottom(40)
-        bar:setBounds(bbounds)
-        local lbounds = bounds:withTrimmedTop(5):withTrimmedBottom(5)
+        local lbounds = bounds:withTrimmedBottom(5)
         tree:setBounds( lbounds )
     end)
-    self.__self = comp.__self
-    return setmetatable(self, {
-        __tostring = function()return name end,
-        __self     = comp.__self,
-        __index    = comp,
-        __newindex = comp,
-    })
+
+    return self
 end
 
 return setmetatable({}, {

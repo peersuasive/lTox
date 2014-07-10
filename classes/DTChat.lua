@@ -19,6 +19,21 @@ local log, logError = app.log, app.logError
 
 local componentName = "DTChatBox"
 
+local require, _require = require, _require
+if(LUCE_LIVE_CODING)then
+    print(componentName)
+    _require = _require and _require or require
+    local function safe_require(p)
+        package.loaded[p] = nil
+        if ( pcall(_require,p) ) then
+            return _require(p)
+        end
+    end
+    require = safe_require
+end
+
+local EC = require"EventCentral"
+
 --[[
 
 j'ai un widget avec
@@ -71,9 +86,11 @@ local resources = {
 
 }
 
-local function new(_, name)
+local function new(_, users)
+    local ec = EC()
     local resources = resources
-    local name      = name or componentName
+    local users     = users
+    local name      = componentName
     local comp      = luce:Component(name)
     local topBar    = luce:Component("top")
     local contact   = luce:Label("contact")
@@ -86,7 +103,7 @@ local function new(_, name)
     local send      = luce:TextButton("send")
 
     local self = {
-        contacts = {},
+        contacts = users,
         messages = {}
     }
     
@@ -95,10 +112,21 @@ local function new(_, name)
     end
 
     local function sendMessage(msg)
-        print("send message")
-        self.messages[#self.messages+1] = msg
-        historyBox:updateContent()
-        historyBox:repaint()
+        if(app.tox)then
+            for _,user in next, self.contacts do
+                if(app.tox.tox:getFriendConnectionStatus(user.num))then
+                    print("sending to user...", user.name)
+                    assert( ec.broadcast("sendMessage", user, msg ) )
+                    self.messages[#self.messages+1] = msg
+                    historyBox:updateContent()
+                    historyBox:repaint()
+                    return true
+                else
+                    print("User's not connected")
+                end
+            end
+        end
+        return false
     end
 
     inputBox.multiLine = true
@@ -108,8 +136,9 @@ local function new(_, name)
     send.buttonText = "[send]"
     send:setLookAndFeel(4)
     send:buttonClicked(function()
-        sendMessage(inputBox.text)
-        inputBox.text = ""
+        if(sendMessage(inputBox.text))then
+            inputBox.text = ""
+        end
     end)
 
     historyBox.popupMenuEnabled = true
@@ -131,7 +160,7 @@ local function new(_, name)
         g:drawText ( text , 5, 0, width, height, luce.JustificationType.left, true );
     end)
 
-    contact.text = self.contacts and self.contacts[1] or "<noone>"
+    contact.text = self.contacts and self.contacts[1].name or "<noone>"
     contact:setMinimumHorizontalScale( 1.0 )
     contact:setJustificationType( luce.JustificationType.left )
     contact:setEditable( false, false, true )
