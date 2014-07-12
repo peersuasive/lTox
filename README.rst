@@ -1,6 +1,12 @@
-lTox - a GUI for `Tox <https://tox.im/>`__
+====
+lTox 
+====
+-----------------------------------
+a GUI for `Tox <https://tox.im/>`__
+-----------------------------------
 
-draft.
+
+**draft.**
 
 Written with `Luce <https://github.com/peersuasive/luce>`__.
 
