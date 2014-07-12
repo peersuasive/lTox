@@ -50,7 +50,7 @@ qui contient mon id et mon nick
 
 --]]
 
-local title = "Hello World!"
+local title = "lTox"
 local app, luce = require"luce.LApplication"("app", ...)
 
 -- TODO: create a Tox class to hold all callbacks, initialise things, etc
@@ -161,7 +161,27 @@ local function MainWindow(params)
         end
         table.remove(friends, i)
     end
-    local function cbOnFriendAdded(max)
+    local function addFriend(friendnum, info)
+        local info = info or {}
+        local num, i = friendnum, friendnum+1
+        if not(friends[i]) then
+            local friend = {
+                num     = num,
+                active  = info.active or false,
+                chatwin = info.chatwin or false,
+                online  = info.online or false,
+                status  = info.status
+                            or tox:getFriendConnectionStatus( num ) and Tox.status.NONE or Tox.status.INVALID,
+                --status  = tox:getUserStatus( i ),
+                message = info.message or tox:getStatusMessage( num ) or "",
+                key     = info.key or tox:getClientId(num),
+                name    = info.name or tox:getName(i) or "Anonymous",
+                lastOnline = info.lastOnline or tox:getLastOnline(i),
+            }
+            friends[i] = friend
+        end
+    end
+    local function dtOnFriendAdded(max)
         local friends = friends
         for i=0,max-1 do
             if not(friends[i+1]) then
@@ -174,7 +194,7 @@ local function MainWindow(params)
                     --status  = tox:getUserStatus( i ),
                     message = tox:getStatusMessage( i ) or "",
                     key     = tox:getClientId(i),
-                    name    = tox:getName(i) or "Anonymous",
+                    name    = tox:getName(i) or Utils.formatAddress(tox:getClientId(i)) or "Anonymous",
                     lastOnline = tox:getLastOnline(i),
                 }
                 print("user status:", friend.status)
@@ -183,26 +203,23 @@ local function MainWindow(params)
         end
     end
 
-    local function cbReceiveMessage(friend, msg)
-        print(string.format("friend %s sent a message: %s", friend, msg))
+    local function dtAddFriend(req)
+        if not(req.id) or (req.id=="")then
+            ec.broadcast("error", "Can't add friend: Missing Tox ID")
+        end
+        local msg = (req.msg=="") and "Please, add me !" or req.msg
+        print(string.format("requesting friend with req: '%s', '%s'", req.id, msg))
+        local r, e = tox:addFriend(req.id, msg)
+        if(r) then 
+            -- TODO: create a method to update list in one go
+            addFriend(r, { name = req.id })
+            --dtOnFriendAdded(tox:countFriendlist())
+            contacts:setData(friends)
+            save_config()
+        end
+        ec.broadcast( (r and "success" or "error"), (e or "Successfully added friend with id: " .. r) )
     end
-    tox:callbackFriendMessage(cbReceiveMessage)
-
-    -- called when a user connects also, but won't detect disconnections
-    local function cbChangeName(friend, msg)
-        print(string.format("friend %s changed its name: %s", friend, msg))
-    end
-    tox:callbackNameChange(cbChangeName)
-
-    local function cbStatusChanged(friend, status)
-        ec.broadcast("statusChanged", friend, status)
-    end
-    tox:callbackUserStatus(cbStatusChanged)
-
-    local function cbFriendRequest(pub, msg)
-        print(string.format("friend requested adding: %s", msg))
-    end
-    tox:callbackFriendRequest(cbFriendRequest)
+    ec.register("addFriend", dtAddFriend)
 
     local function dtSendMessage(friend, msg)
         print("sending message **********************", friend.num, msg)
@@ -230,6 +247,108 @@ local function MainWindow(params)
         local msg = string.format("INFO: "..msg, ...)
         print(msg)
     end
+
+    local function cbReceiveMessage(friend, msg)
+        print(string.format("friend %s sent a message: %s", friend, msg))
+    end
+    tox:callbackFriendMessage(cbReceiveMessage)
+
+    -- called when a user connects also, but won't detect disconnections
+    local function cbChangeName(friend, msg)
+        print(string.format("friend %s changed its name: %s", friend, msg))
+        if(friends[friend+1])then
+            friends[friend+1].name = msg
+            contacts:setData(friends)
+        else
+            print("Couldn't change friend name: not yet addedd ?")
+        end
+    end
+    tox:callbackNameChange(cbChangeName)
+
+    local function cbStatusChanged(friend, status)
+        ec.broadcast("statusChanged", friend, status)
+    end
+    tox:callbackUserStatus(cbStatusChanged)
+
+    local function cbFriendRequest(pub, msg)
+        print(string.format("friend requested adding: %s", msg))
+    end
+    tox:callbackFriendRequest(cbFriendRequest)
+
+    local function cbFriendMessage(friend, msg)
+        print(string.format("friend message"))
+    end
+    tox:callbackFriendMessage(cbFriendMessage)
+
+    local function cbFriendAction(friend, msg)
+        print(string.format("friend action"))
+    end
+    tox:callbackFriendAction(cbFriendAction)
+
+    local function cbNameChange(friend, msg)
+        print(string.format("name change"))
+    end
+    tox:callbackNameChange(cbNameChange)
+
+    local function cbStatusMessage(friend, msg)
+        print(string.format("status message"))
+    end
+    tox:callbackStatusMessage(cbStatusMessage)
+
+    local function cbUserStatus(friend, msg)
+        print(string.format("user status"))
+    end
+    tox:callbackUserStatus(cbUserStatus)
+
+    local function cbTypingChange(friend, msg)
+        print(string.format("typing change"))
+    end
+    tox:callbackTypingChange(cbTypingChange)
+
+    local function cbReadReceipt(friend, msg)
+        print(string.format("read receipt"))
+    end
+    tox:callbackReadReceipt(cbReadReceipt)
+
+    local function cbConnectionStatus(friend, msg)
+        print(string.format("connection status"))
+    end
+    tox:callbackConnectionStatus(cbConnectionStatus)
+
+    local function cbGroupInvite(friend, msg)
+        print(string.format("group invite"))
+    end
+    tox:callbackGroupInvite(cbGroupInvite)
+
+    local function cbGroupMessage(friend, msg)
+        print(string.format("group message"))
+    end
+    tox:callbackGroupMessage(cbGroupMessage)
+
+    local function cbGroupAction(friend, msg)
+        print(string.format("group action"))
+    end
+    tox:callbackGroupAction(cbGroupAction)
+
+    local function cbGroupNamelistChange(friend, msg)
+        print(string.format("namelist change"))
+    end
+    tox:callbackGroupNamelistChange(cbGroupNamelistChange)
+
+    local function cbFileSendRequest(friend, msg)
+        print(string.format("send request"))
+    end
+    tox:callbackFileSendRequest(cbFileSendRequest)
+
+    local function cbFileControl(friend, msg)
+        print(string.format("file control"))
+    end
+    tox:callbackFileControl(cbFileControl)
+
+    local function cbFileData(friend, msg)
+        print(string.format("file data"))
+    end
+    tox:callbackFileData(cbFileData)
 
 
     -- -----------------
@@ -291,7 +410,7 @@ local function MainWindow(params)
         assert(ec.register("success", dtSuccess))
         assert(ec.register("error", dtError))
 
-        cbOnFriendAdded(tox:countFriendlist())
+        dtOnFriendAdded(tox:countFriendlist())
         contacts:setData(friends)
     end)
 

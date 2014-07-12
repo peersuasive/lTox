@@ -19,6 +19,7 @@ local function startDHT()
 end
 
 local function formatAddress(raw)
+    if not(raw) or (''==raw) then return nil end
     local raw_hex = {}
     for i=1, #raw do
         raw_hex[#raw_hex+1] = string.format( "%02X", string.byte( raw:sub(i,i) ) )

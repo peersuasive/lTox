@@ -133,14 +133,14 @@ local defaultOverColour = luce:Colour(luce.Colours.yellow):withAlpha(0.5)
 local defaultOverSelectedColour = luce:Colour(luce.Colours.yellow):withAlpha(0.2)
 local defaultUnselectedColour = luce:Colour(luce.Colours.teal)
 
-local function new(_, user, withListener)
+local function new(_, user, parent)
     local ec = EC()
     local resources = resources
     local borderDefaultColour = borderDefaultColour
     local defaultUnselectedColour, defaultSelectedColour = defaultUnselectedColour, defaultSelectedColour
     
     local name      = user.name or componentName
-    local withListener = withListener
+    local withListener = parent and true or false
 
     local comp      = luce:Component(name)
     local slm       = luce:StretchableLayoutManager("slm")
@@ -223,7 +223,6 @@ local function new(_, user, withListener)
     if(withListener)then
         remove:mouseUp(function(mouseEvent)
             if(mouseEvent:mouseWasClicked())then
-                print("mouse up on remove")
                 local cob = nil
                 local function cb(res)
                     result = res
@@ -235,7 +234,7 @@ local function new(_, user, withListener)
                     end
                 end
                 local confirm = createDialog({200,200}, cb)
-                cob = luce:CallOutBox( confirm, comp:getBounds(), withListener )
+                cob = luce:CallOutBox( confirm, comp:getBounds(), parent )
             end
         end)
 

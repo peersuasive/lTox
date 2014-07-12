@@ -45,10 +45,21 @@ local function new()
             ec[event][cb] = nil
         end
     end
+
+    -- DEBUG
+    local function dump()
+        require"pl.pretty".dump( ec )
+    end
+    local function clear()
+        app.EventCentral.listeners = {}
+    end
     local self = {
         broadcast   = broadcast,
         register    = register,
         unregister  = unregister,
+        -- DEBUG
+        dump        = dump,
+        clear       = clear,
     }
     return setmetatable(self,{
         __index = self
