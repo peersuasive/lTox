@@ -4,6 +4,9 @@
 
  A very simple (synchronous) message broadcaster
 
+    TODO: see https://github.com/Salmito/leda for a possible implementation
+              or adapt with gadokai
+
     @alias meta
 
     @author Christophe Berbizier (cberbizier@peersuasive.com)
@@ -46,6 +49,10 @@ local function new()
         end
     end
 
+    local function isRegistered(event)
+        return ec[event] and true or false
+    end
+
     -- DEBUG
     local function dump()
         require"pl.pretty".dump( ec )
@@ -57,6 +64,7 @@ local function new()
         broadcast   = broadcast,
         register    = register,
         unregister  = unregister,
+        isRegistered = isRegistered,
         -- DEBUG
         dump        = dump,
         clear       = clear,

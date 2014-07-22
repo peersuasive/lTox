@@ -127,11 +127,14 @@ local function new(_, name, parent)
     local self  = {}
 
     add:setImage(resources.add)
+    local isShowing = false
     add:mouseUp(function(m)
+        if(isShowing)then return end
         local cob = nil
         local function cb(req)
             if(cob)then
                 cob:dismiss()
+                isShowing = false
             end
             if(req)then
                 ec.broadcast("addFriend", req)
@@ -140,6 +143,7 @@ local function new(_, name, parent)
         local dialog = createDialog({200, 200}, cb)
         cob = luce:CallOutBox( dialog, comp:getBounds(), comp:getParentComponent() )
         cob:setLookAndFeel(4)
+        isShowing = true
     end)
 
     settings:setImage(resources.settings)

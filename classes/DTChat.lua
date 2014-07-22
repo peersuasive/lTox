@@ -34,39 +34,10 @@ end
 
 local EC = require"EventCentral"
 
---[[
-
-j'ai un widget avec
-j'ai mon statut, mon mood
-un bouton pour envoyer un fichier, passer un call ou démarrer une video conf
-un bouton pour ajouter des contacts au chat en cours, si c'est possible avec Tox
-
-la zone principale avec l'historique des chats
-
-la zone de saisie avec le bouton pour envoyer
-
-chaque envoi envoi un événement qui sera capté par la fenêtre principale
-pour activer les routines qui vont bien
-
-je reçois la liste des intervenants au démarrage
-et je souscris à un événement qui me signale l'arrivée de nouveaux
-intervenants, pour le group chat
-pas sûr que ce dernier point ne soit vraiment nécessaire
-
-
-+-------------------- top bar -> label(s) with contact(s) + buttons -> holding component
-| contact or group [a/v] [attachment]
-+-------------------- history
-|
-|
-|
-| ...
-+---------------+--------+ input box + send button
-|               | [sent]
-+---------------+--------+
-
---]]
-
+-- TODO: 
+--  save history (using user's uuid)
+--
+--
 
 local resources = {
     status = {
@@ -88,6 +59,8 @@ local resources = {
 
 local function new(_, users)
     local ec = EC()
+    math.randomseed(os.time()) math.random() math.random() math.random()
+    local myuuid = math.random(1,10000)
     local resources = resources
     local users     = users
     local name      = componentName
@@ -98,9 +71,12 @@ local function new(_, users)
     local attachIcon= resources.avf.attachment
     local av        = luce:ImageButton("av")
     local avIcon    = resources.avf.audio
+    -- TODO: create an object with two columns for hbox: owner | message
     local historyBox = luce:ListBox("history")
     local inputBox  = luce:TextEditor("input")
     local send      = luce:TextButton("send")
+
+    local pendingMsg, pendingMsgId = {}, {}
 
     local self = {
         contacts = users,
@@ -111,15 +87,69 @@ local function new(_, users)
         -- do something...
     end
 
+    -- méthode pour afficher les messages reçus
+    -- événement NewMessage + user id
+    
+    local function showMessage(friend, msg, update)
+        -- friend name == -1 -> me
+        print(string.format("new message from %s: %s", friend, msg))
+        local name = "[ukn]"
+        if(friend<0)then
+            name = "me"
+        else
+            for _, f in next, users do
+                if(f.num==friend)then
+                    name = f.name
+                    break;
+                end
+            end
+        end
+        print("friend name: " .. name)
+        local i = update or #self.messages+1
+        self.messages[i] = string.format("[%s] %s", name, msg)
+        historyBox:updateContent()
+        historyBox:repaint()
+    end
+    -- TODO: add this to setContactList also
+    for _,user in next, users do
+        print("register for new message: " .. user.num)
+        assert(ec.register("newMessage.".. user.num , showMessage))
+    end
+
+    local pending = "sending..."
+    local function pendingSend(user, msg)
+        print("sending to user...", user.name)
+        showMessage( -1, pending )
+        local msg_num = #self.messages
+        pendingMsg[msg_num] = msg
+        assert( ec.broadcast("sendMessage", user, msg, myuuid, msg_num ) )
+    end
+
+    local function messageReceived(friend, msg_id)
+        if(pendingMsgId[msg_id])then
+            local msg_num = pendingMsgId[msg_id]
+            local msg = pendingMsg[msg_num]
+            showMessage( -1, msg, msg_num )
+            pendingMsgId[msg_id] = nil
+            pendingMsg[msg_num] = nil
+        end
+    end
+    for _, user in next, users do
+        assert(ec.register("readReceipt."..user.num, messageReceived))
+    end
+    
+    local function recvMsgId(msg_num, msg_id)
+        pendingMsgId[msg_id] = msg_num
+    end
+    for _,user in next, users do
+        assert(ec.register("sendMsgId."..user.num, recvMsgId))
+    end
+
     local function sendMessage(msg)
         if(app.tox)then
             for _,user in next, self.contacts do
                 if(app.tox.tox:getFriendConnectionStatus(user.num))then
-                    print("sending to user...", user.name)
-                    assert( ec.broadcast("sendMessage", user, msg ) )
-                    self.messages[#self.messages+1] = msg
-                    historyBox:updateContent()
-                    historyBox:repaint()
+                    pendingSend(user, msg)
                     return true
                 else
                     print("User's not connected")

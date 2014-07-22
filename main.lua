@@ -221,9 +221,10 @@ local function MainWindow(params)
     end
     ec.register("addFriend", dtAddFriend)
 
-    local function dtSendMessage(friend, msg)
-        print("sending message **********************", friend.num, msg)
-        assert( tox:sendAction(friend.num, msg), "Can't send message" )
+    local function dtSendMessage(user, msg, who, msg_num)
+        print("sending message **********************", user.num, msg)
+        local msg_id = assert( tox:sendAction(user.num, msg), "Can't send message" )
+        ec.broadcast("sendMsgId."..user.num, msg_num, msg_id)
     end
 
     local function dtRemoveFriend(friend)
@@ -266,6 +267,7 @@ local function MainWindow(params)
     tox:callbackNameChange(cbChangeName)
 
     local function cbStatusChanged(friend, status)
+        print(string.format("user status"))
         ec.broadcast("statusChanged", friend, status)
     end
     tox:callbackUserStatus(cbStatusChanged)
@@ -276,7 +278,8 @@ local function MainWindow(params)
     tox:callbackFriendRequest(cbFriendRequest)
 
     local function cbFriendMessage(friend, msg)
-        print(string.format("friend message"))
+        print(string.format("friend message: %s (%s)", msg, friend))
+        ec.broadcast("newMessage."..friend, friend, msg)
     end
     tox:callbackFriendMessage(cbFriendMessage)
 
@@ -295,18 +298,14 @@ local function MainWindow(params)
     end
     tox:callbackStatusMessage(cbStatusMessage)
 
-    local function cbUserStatus(friend, msg)
-        print(string.format("user status"))
-    end
-    tox:callbackUserStatus(cbUserStatus)
-
     local function cbTypingChange(friend, msg)
         print(string.format("typing change"))
     end
     tox:callbackTypingChange(cbTypingChange)
 
-    local function cbReadReceipt(friend, msg)
-        print(string.format("read receipt"))
+    local function cbReadReceipt(friend, msg_id)
+        print(string.format("read receipt: %s, %s", friend, msg_id))
+        ec.broadcast("readReceipt."..friend, friend, msg_id)
     end
     tox:callbackReadReceipt(cbReadReceipt)
 
