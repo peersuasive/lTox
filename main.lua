@@ -51,6 +51,7 @@ qui contient mon id et mon nick
 --]]
 
 local title = "lTox"
+local luce = require"luce"
 local app, luce = require"luce.LApplication"("app", ...)
 
 -- TODO: create a Tox class to hold all callbacks, initialise things, etc
@@ -482,4 +483,4 @@ local function control()
     end
 end
 
-return app:start(MainWindow, { control, 200 } )
+return app:start(MainWindow, { control, 200 })
