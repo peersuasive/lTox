@@ -160,17 +160,31 @@ local function new(_, users)
     end
 
     inputBox.multiLine = true
-    inputBox.returnKeyStartsNewLine = false
+    inputBox.returnKeyStartsNewLine = true
     inputBox.popupMenuEnabled = true
 
-    send.buttonText = "[send]"
-    send:setLookAndFeel(4)
-    send:buttonClicked(function()
+    local function buttonSendMessage()
         if(sendMessage(inputBox.text))then
             inputBox.text = ""
         end
-    end)
+    end
+    send.buttonText = "[send]"
+    send:setLookAndFeel(4)
+    send:buttonClicked(buttonSendMessage)
 
+    local K = string.byte
+    inputBox:keyPressed(function(k)
+        local m = k:getModifiers()
+        if(k:isKeyCode(k.KeyCodes.returnKey))then
+            if(m:isCommandDown() or m:isShiftDown())then
+                return luce:KeyPress(k:getKeyCode())
+            else
+                buttonSendMessage()
+                return true
+            end
+        end
+        return false
+    end)
     historyBox.popupMenuEnabled = true
     historyBox:setColour( historyBox.ColourIds.backgroundColourId, "white" )
     historyBox:setColour( historyBox.ColourIds.outlineColourId, "black" )
