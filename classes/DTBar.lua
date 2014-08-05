@@ -36,8 +36,8 @@ local TreeViewItem = require"DTTreeViewItem"
 local EC = require"EventCentral"
 
 local resources = {
-         add = luce.Image:getFromFile("./assets/settings.add.png"),
-    settings = luce.Image:getFromFile("./assets/settings.settings.png"),
+         add = luce.Image:getFromFile(app:getRes("assets/settings.add.png")),
+    settings = luce.Image:getFromFile(app:getRes("assets/settings.settings.png")),
 }
 
 local function createDialog(size, cb)
