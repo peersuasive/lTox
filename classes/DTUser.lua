@@ -106,23 +106,23 @@ end
 
 local resources = {
     status = {
-           busy = luce.Image:getFromFile("./assets/status.busy.png"),
-         online = luce.Image:getFromFile("./assets/status.online.png"),
-        offline = luce.Image:getFromFile("./assets/status.offline.png"),
-        [app.Tox.status.BUSY]   = luce.Image:getFromFile("./assets/status.busy.png"),
-        [app.Tox.status.AWAY]   = luce.Image:getFromFile("./assets/status.away.png"),
-        [app.Tox.status.INVALID]= luce.Image:getFromFile("./assets/status.offline.png"),
-        [app.Tox.status.NONE]   = luce.Image:getFromFile("./assets/status.online.png"),
+           busy = luce.Image:getFromFile(app:getRes("assets/status.busy.png")),
+         online = luce.Image:getFromFile(app:getRes("assets/status.online.png")),
+        offline = luce.Image:getFromFile(app:getRes("assets/status.offline.png")),
+        [app.Tox.status.BUSY]   = luce.Image:getFromFile(app:getRes("assets/status.busy.png")),
+        [app.Tox.status.AWAY]   = luce.Image:getFromFile(app:getRes("assets/status.away.png")),
+        [app.Tox.status.INVALID]= luce.Image:getFromFile(app:getRes("assets/status.offline.png")),
+        [app.Tox.status.NONE]   = luce.Image:getFromFile(app:getRes("assets/status.online.png")),
     },
     user = {
-           user = luce.Image:getFromFile("./assets/contact.png"),
-         remove = luce.Image:getFromFile("./assets/remove.png"),
-          group = luce.Image:getFromFile("./assets/groupchat.png"),
+           user = luce.Image:getFromFile(app:getRes("assets/contact.png")),
+         remove = luce.Image:getFromFile(app:getRes("assets/remove.png")),
+          group = luce.Image:getFromFile(app:getRes("assets/groupchat.png")),
     },
     avf = {
-          audio = luce.Image:getFromFile("./assets/call.audio.png"),
-          video = luce.Image:getFromFile("./assets/call.video.png"),
-     attachment = luce.Image:getFromFile("./assets/attachment.png"),
+          audio = luce.Image:getFromFile(app:getRes("assets/call.audio.png")),
+          video = luce.Image:getFromFile(app:getRes("assets/call.video.png")),
+     attachment = luce.Image:getFromFile(app:getRes("assets/attachment.png")),
     },
 
 }
