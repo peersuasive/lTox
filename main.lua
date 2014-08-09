@@ -108,6 +108,7 @@ local function MainWindow(params)
     local User     = require"DTUser"
     local Utils    = require"DTUtils"
     local Bar      = require"DTBar"
+    local Settings = require"DTSettings"
 
     --------------------
 
@@ -353,7 +354,51 @@ local function MainWindow(params)
 
     -- -----------------
 
+    local configDialog = nil
     local active, lastWidth = nil, nil
+    local function showConfig()
+        if(configDialog)then return end
+        configDialog = Settings()
+        if(active)then
+            active.visible = false
+        else
+            local w = lastWidth or (mc:getWidth()+chatWidth)
+            lastWidth = lastWidth or w
+            mc:setSize( w, mc:getHeight() )
+        end
+        local bounds = luce:Rectangle(mc:getLocalBounds()):withTrimmedLeft(240)
+        configDialog:setBounds(bounds)
+        mc:addAndMakeVisible(configDialog)
+        mc:repaint()
+    end
+    local function hideConfig()
+        if not(configDialog)then return end
+        if(configDialog.pending)then
+            print"PENDING CHANGES"
+            -- TODO: show dialog asking for confirmation: Save / Discard / Cancel
+            if(cancel)then
+                return false
+            end
+        end
+        if(active)then
+            active.visible = true
+        else
+            lastWidth = mc:getWidth()
+            mc:setSize( wsize[1], mc:getHeight() )
+        end
+        configDialog.visible = false
+        mc:removeChildComponent(configDialog)
+        configDialog = nil
+        return true
+    end
+    local function configClicked()
+        if(configDialog)then
+            hideConfig()
+        else
+            showConfig()
+        end
+    end
+
     local function createChat(user)
         -- TODO: add a cleanup method in chat for callbacks, if any
         --       and call it before creating new window
@@ -393,6 +438,13 @@ local function MainWindow(params)
         end
     end
     local function itemClicked(e, user, isNowSelected)
+        if(configDialog)then
+            if not(hideConfig())then
+                -- TODO: don't change button / chat box state
+                -- user.selected = not(isNowSelected)
+                return
+            end
+        end
         print("item clicked", isNowSelected)
         if(isNowSelected)then
             createChat(user)
@@ -400,9 +452,10 @@ local function MainWindow(params)
             hideChat(user)
         end
     end
- 
+
     local black = luce:Colour(luce.Colours.black)
     app:initialised(function()
+        assert(ec.register("configClicked", configClicked))
         assert(ec.register("itemClicked", itemClicked))
         assert(ec.register("sendMessage", dtSendMessage))
         assert(ec.register("removeFriend", dtRemoveFriend))
@@ -428,6 +481,9 @@ local function MainWindow(params)
         contacts:setBounds(lbounds)
         if(active and active.visible)then
             active:setBounds(bounds)
+        end
+        if(configDialog)then
+            configDialog:setBounds(bounds)
         end
     end)
 

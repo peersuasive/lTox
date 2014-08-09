@@ -147,6 +147,9 @@ local function new(_, name, parent)
     end)
 
     settings:setImage(resources.settings)
+    settings:mouseUp(function(m)
+        ec.broadcast("configClicked")
+    end)
 
     comp:addAndMakeVisible(add)
     comp:addAndMakeVisible(settings)
