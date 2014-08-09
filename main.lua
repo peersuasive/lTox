@@ -389,6 +389,7 @@ local function MainWindow(params)
             active.visible = false
             lastWidth = mc:getWidth()
             mc:setSize( wsize[1], mc:getHeight() )
+            active = nil
         end
     end
     local function itemClicked(e, user, isNowSelected)
