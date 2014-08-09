@@ -236,10 +236,12 @@ local function new(_, data, value, parent)
     local itemDoubleClicked = function(...) return comp.itemDoubleClicked(comp, ...) end
     local itemClicked = function(...) return comp.itemClicked(comp,...) end
     comp:itemClicked(function(e)
-        local selected = not(self.item:isSelected())
-        comp:setSelected(selected, true)
         if(self.isnode)then
-            ec.broadcast("itemClicked", e, self.data, selected)
+            local selected = not(self.item:isSelected())
+            comp:setSelected(selected, true)
+            if(self.isnode)then
+                ec.broadcast("itemClicked", e, self.data, selected)
+            end
         end
     end)
 
