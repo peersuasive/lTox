@@ -38,7 +38,7 @@ local EC = require"EventCentral"
      name
 [icon] tox client name  {status}
 
-- componsant passif -- il peut retourner l'id et l'uuid de l'utilisateur,
+- composant passif -- il peut retourner l'id et l'uuid de l'utilisateur,
   c'est tout
   -> pas de listener ici
   mais il peut envoyer les clics au parent
